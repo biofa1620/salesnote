@@ -3,12 +3,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { currentUser } from "@/lib/session";
 
-const TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic", webm: "audio/webm", m4a: "audio/mp4", mp4: "audio/mp4", ogg: "audio/ogg", wav: "audio/wav" };
+const TYPES: Record<string, string> = { pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic", webm: "audio/webm", m4a: "audio/mp4", mp4: "audio/mp4", ogg: "audio/ogg", wav: "audio/wav" };
 
 export async function GET(_req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   if (!(await currentUser())) return new Response("로그인이 필요합니다", { status: 401 });
   const parts = (await params).path;
-  if (parts.some((p) => p.includes("..")) || !["cards", "audio"].includes(parts[0])) return new Response("없음", { status: 404 });
+  if (parts.some((p) => p.includes("..")) || !["cards", "audio", "materials"].includes(parts[0])) return new Response("없음", { status: 404 });
   const root = path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
   try {
     const buf = await readFile(path.join(root, ...parts));

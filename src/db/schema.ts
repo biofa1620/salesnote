@@ -23,6 +23,8 @@ export const companies = sqliteTable("companies", {
   id: id(),
   name: text("name").notNull().unique(),
   industry: text("industry"),
+  bizNo: text("biz_no"), // 사업자등록번호 (기업 정보 연동 후 채워짐)
+  info: text("info", { mode: "json" }).$type<CompanyInfo>(), // 재무·신용·공시·뉴스 (src/lib/company-info)
   createdAt: createdAt(),
 });
 
@@ -48,6 +50,7 @@ export const deals = sqliteTable("deals", {
   ownerId: text("owner_id").notNull().references(() => users.id),
   title: text("title").notNull(),
   stage: text("stage").notNull().default("발굴"),
+  stageChangedAt: integer("stage_changed_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()), // 정체 경보 기준
   probability: integer("probability"), // 2단계 수주확률. MVP는 단계 기본값을 씁니다.
   lostReason: text("lost_reason"),
   createdAt: createdAt(),
@@ -98,7 +101,32 @@ export const comments = sqliteTable("comments", {
   createdAt: createdAt(),
 });
 
-/** 활동 이력 (활동 타임라인). type: MEETING | CALL | CARD | SCHEDULE */
+/** 자료실: 브로슈어·규격서 등 고객에게 보낼 자료 */
+export const materials = sqliteTable("materials", {
+  id: id(),
+  title: text("title").notNull(),
+  category: text("category").notNull().default("브로슈어"),
+  description: text("description"),
+  filePath: text("file_path").notNull(), // 파일 저장소 경로 (uploads/materials/...)
+  fileName: text("file_name").notNull(),
+  createdById: text("created_by_id").notNull().references(() => users.id),
+  createdAt: createdAt(),
+});
+
+/** 자료 전송 기록. token으로 만든 링크를 고객이 열면 열람 시각이 남습니다. */
+export const shares = sqliteTable("shares", {
+  id: id(),
+  token: text("token").notNull().unique(),
+  materialId: text("material_id").notNull().references(() => materials.id),
+  userId: text("user_id").notNull().references(() => users.id),
+  contactId: text("contact_id").references(() => contacts.id),
+  companyId: text("company_id").references(() => companies.id),
+  openCount: integer("open_count").notNull().default(0),
+  firstOpenedAt: integer("first_opened_at", { mode: "timestamp" }),
+  createdAt: createdAt(),
+});
+
+/** 활동 이력 (활동 타임라인). type: MEETING | CALL | CARD | SCHEDULE | SHARE */
 export const activities = sqliteTable("activities", {
   id: id(),
   userId: text("user_id").notNull().references(() => users.id),
@@ -110,6 +138,19 @@ export const activities = sqliteTable("activities", {
   link: text("link"),
   createdAt: createdAt(),
 });
+
+export type CompanyInfo = {
+  source: string; // 예: "샘플 데이터", "DART·KED"
+  fiscalYear?: string; // 재무 기준 연도
+  revenue?: number; // 매출액 (억 원)
+  operatingProfit?: number; // 영업이익 (억 원)
+  creditGrade?: string; // 기업 신용등급
+  ceo?: string;
+  address?: string;
+  disclosures: { date: string; title: string; url?: string }[];
+  news: { date: string; title: string; press?: string; url?: string }[];
+  updatedAt: string; // ISO
+};
 
 export type TranscriptLine = { speaker: string; text: string };
 export type MeetingSummary = {
@@ -158,6 +199,16 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
 export const commentsRelations = relations(comments, ({ one }) => ({
   meeting: one(meetings, { fields: [comments.meetingId], references: [meetings.id] }),
   author: one(users, { fields: [comments.authorId], references: [users.id] }),
+}));
+export const materialsRelations = relations(materials, ({ one, many }) => ({
+  createdBy: one(users, { fields: [materials.createdById], references: [users.id] }),
+  shares: many(shares),
+}));
+export const sharesRelations = relations(shares, ({ one }) => ({
+  material: one(materials, { fields: [shares.materialId], references: [materials.id] }),
+  user: one(users, { fields: [shares.userId], references: [users.id] }),
+  contact: one(contacts, { fields: [shares.contactId], references: [contacts.id] }),
+  company: one(companies, { fields: [shares.companyId], references: [companies.id] }),
 }));
 export const activitiesRelations = relations(activities, ({ one }) => ({
   user: one(users, { fields: [activities.userId], references: [users.id] }),

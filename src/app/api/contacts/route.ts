@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, companies, contacts, activities } from "@/db";
 import { currentUser } from "@/lib/session";
+import { companyInfo } from "@/lib/company-info";
 
 export async function POST(req: Request) {
   const u = await currentUser();
@@ -13,7 +14,20 @@ export async function POST(req: Request) {
   if (!name || !companyName) return NextResponse.json({ error: "이름과 회사는 꼭 입력해 주세요" }, { status: 400 });
 
   let company = await db.query.companies.findFirst({ where: eq(companies.name, companyName) });
-  if (!company) [company] = await db.insert(companies).values({ name: companyName }).returning();
+  if (!company) {
+    [company] = await db.insert(companies).values({ name: companyName }).returning();
+    // 새 고객사: 회사명이 정확히 일치하는 후보가 하나뿐이면 기업 정보를 바로 붙입니다.
+    // 여러 곳이거나 없으면 고객카드에서 영업사원이 직접 고릅니다.
+    try {
+      const exact = (await companyInfo().search(companyName)).filter((c) => c.name === companyName);
+      if (exact.length === 1) {
+        const { bizNo, info } = await companyInfo().fetch(exact[0].id, companyName);
+        await db.update(companies).set({ bizNo, info }).where(eq(companies.id, company.id));
+      }
+    } catch {
+      // 기업 정보 연동 실패는 명함 저장을 막지 않습니다.
+    }
+  }
 
   const [c] = await db
     .insert(contacts)

@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { db, events, activities, meetings, comments, deals, type MeetingSummary } from "@/db";
+import { db, events, activities, meetings, comments, deals, materials, shares, type MeetingSummary } from "@/db";
+import { saveFile } from "@/lib/storage";
 import { requireLead, requireUser } from "@/lib/session";
 import { md, hhmm } from "@/lib/format";
 
@@ -125,8 +126,40 @@ export async function setDealStage(f: FormData) {
   await requireUser();
   const id = str(f, "dealId")!;
   const stage = str(f, "stage")!;
-  await db.update(deals).set({ stage }).where(eq(deals.id, id));
+  const d = await db.query.deals.findFirst({ where: eq(deals.id, id) });
+  if (!d || d.stage === stage) return;
+  await db.update(deals).set({ stage, stageChangedAt: new Date() }).where(eq(deals.id, id));
   revalidatePath("/", "layout");
+}
+
+/** 자료실에 자료 등록 (팀장) */
+export async function uploadMaterial(f: FormData) {
+  const u = await requireLead();
+  const file = f.get("file");
+  if (!(file instanceof File) || file.size === 0) return;
+  const { relPath } = await saveFile("materials", file);
+  await db.insert(materials).values({
+    title: str(f, "title") ?? file.name, category: str(f, "category") ?? "브로슈어",
+    description: str(f, "description"), filePath: relPath, fileName: file.name, createdById: u.id,
+  });
+  revalidatePath("/", "layout");
+}
+
+/** 자료 전송 링크 만들기. 돌려준 주소를 휴대폰 '공유하기'로 카카오톡·문자에 보냅니다. */
+export async function createShare(materialId: string, contactId: string | null) {
+  const u = await requireUser();
+  const mat = await db.query.materials.findFirst({ where: eq(materials.id, materialId) });
+  if (!mat) throw new Error("자료가 없습니다");
+  const contact = contactId ? await db.query.contacts.findFirst({ where: (t, { eq }) => eq(t.id, contactId), with: { company: true } }) : null;
+  const token = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+  await db.insert(shares).values({ token, materialId, userId: u.id, contactId: contact?.id ?? null, companyId: contact?.companyId ?? null });
+  await db.insert(activities).values({
+    userId: u.id, companyId: contact?.companyId ?? null, contactId: contact?.id ?? null, type: "SHARE",
+    text: contact ? `${contact.company.name} ${contact.name} ${contact.title ?? ""}에게 '${mat.title}' 전송`.replace(/\s+/g, " ") : `'${mat.title}' 링크 전송`,
+    sub: "아직 열람 안 함",
+  });
+  revalidatePath("/", "layout");
+  return { path: `/s/${token}`, title: mat.title };
 }
 
 export async function logout() {

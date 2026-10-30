@@ -16,6 +16,10 @@ export const realProvider: AiProvider = {
     // 예: STT_API_KEY로 음성인식 API 호출(화자 분리 옵션 켜기) → TranscriptLine[]로 변환
     return notReady("음성인식");
   },
+  async transcribeMemo() {
+    // 예: 짧은 음성 메모를 STT로 받아 한 줄로 정리
+    return notReady("음성 메모 인식");
+  },
   async summarize() {
     // 예: LLM_API_KEY로 요약 요청. 응답은 MeetingSummary JSON 형식으로 받도록 프롬프트에 명시
     return notReady("AI 요약");

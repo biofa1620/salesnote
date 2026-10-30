@@ -20,6 +20,8 @@ export interface AiProvider {
   readBusinessCard(image: Buffer, mimeType: string): Promise<CardFields>;
   /** 녹음 파일 → 화자별 녹취록 */
   transcribe(audio: Buffer, mimeType: string): Promise<TranscriptLine[]>;
+  /** 통화 후 10초 음성 메모 → 한 줄 텍스트 */
+  transcribeMemo(audio: Buffer, mimeType: string): Promise<string>;
   /** 녹취록 → 미팅 카드 요약 */
   summarize(input: { companyName: string; transcript: TranscriptLine[] }): Promise<MeetingSummary>;
 }

@@ -10,6 +10,7 @@ const T: Record<string, { label: string; cls: string; dot: string }> = {
   CALL: { label: "통화", cls: "ok", dot: "var(--ok)" },
   CARD: { label: "명함", cls: "warn", dot: "var(--warn)" },
   SCHEDULE: { label: "일정", cls: "info", dot: "var(--info)" },
+  SHARE: { label: "자료", cls: "gray", dot: "var(--text-body)" },
 };
 
 export default async function Timeline({ searchParams }: { searchParams: Promise<{ type?: string; user?: string }> }) {

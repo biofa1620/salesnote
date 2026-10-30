@@ -3,7 +3,7 @@ import { and, asc, eq, gte, lt } from "drizzle-orm";
 import { db, events, meetings, deals } from "@/db";
 import { requireUser } from "@/lib/session";
 import { addDays, hhmm, mdDow, md, startOfDay, daysBetween, ymd } from "@/lib/format";
-import { lastContactByCompany } from "@/lib/queries";
+import { lastContactByCompany, dealHealth } from "@/lib/queries";
 import { ICamera, IMic } from "@/components/Icons";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +28,8 @@ export default async function MobileHome() {
     .map((d) => ({ d, days: last.get(d.companyId) ? daysBetween(last.get(d.companyId)!, new Date()) : 99 }))
     .filter((x) => x.days >= 14 && x.d.stage !== "수주" && x.d.stage !== "실주");
 
+  const stalled = (await dealHealth()).filter((h) => h.deal.ownerId === u.id && h.stalled && !stale.some((x) => x.d.id === h.deal.id));
+
   return (
     <div className="m-page">
       <header className="between" style={{ alignItems: "flex-start" }}>
@@ -46,6 +48,11 @@ export default async function MobileHome() {
           <b style={{ fontSize: 16 }}>명함 촬영</b>
           <span className="small" style={{ opacity: 0.85 }}>찍으면 고객카드가 자동으로 만들어집니다</span>
         </span>
+      </Link>
+
+      <Link href="/m/materials" className="card between" style={{ padding: "12px 16px" }}>
+        <span className="stack" style={{ gap: 2 }}><b>자료 보내기</b><span className="small muted">브로슈어·규격서를 카카오톡·문자 링크로 바로 전송</span></span>
+        <span className="link">열기</span>
       </Link>
 
       <section className="stack" style={{ gap: 10 }}>
@@ -84,7 +91,7 @@ export default async function MobileHome() {
       <section className="stack" style={{ gap: 10 }}>
         <h2 className="m-section-title">해야 할 일</h2>
         <div className="card flush">
-          {drafts.length + todos.length + stale.length === 0 && <div className="list-row muted small">밀린 일이 없습니다.</div>}
+          {drafts.length + todos.length + stale.length + stalled.length === 0 && <div className="list-row muted small">밀린 일이 없습니다.</div>}
           {drafts.map((m) => (
             <Link key={m.id} href={`/m/meetings/${m.id}`} className="list-row">
               <span className="badge warn">확정 필요</span><span className="grow">{m.title} 회의록 확인</span>
@@ -93,6 +100,11 @@ export default async function MobileHome() {
           {todos.map((t) => (
             <Link key={t.id} href={`/m/schedule?date=${ymd(t.startAt)}`} className="list-row">
               <span className="badge info">{daysBetween(today, t.startAt) === 0 ? "오늘까지" : md(t.startAt)}</span><span className="grow">{t.title}</span>
+            </Link>
+          ))}
+          {stalled.map((h) => (
+            <Link key={h.deal.id} href="/m/customers" className="list-row">
+              <span className="badge bad">딜 정체</span><span className="grow">{h.deal.company.name} · {h.deal.stage} 단계 {h.daysInStage}일째</span>
             </Link>
           ))}
           {stale.map(({ d, days }) => (

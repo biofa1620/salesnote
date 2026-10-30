@@ -2,7 +2,7 @@ import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { db, users, meetings, activities } from "@/db";
 import { addDays, daysBetween, hhmm, md, relDay, weekRange } from "@/lib/format";
-import { lastContactByCompany } from "@/lib/queries";
+import { lastContactByCompany, dealHealth } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +30,7 @@ export default async function Dashboard() {
     .filter((x) => x.days >= 14);
   const futureByCompany = new Set(allEvents.filter((e) => e.startAt > now && e.companyId).map((e) => e.companyId));
   const noNext = open.filter((d) => !futureByCompany.has(d.companyId) && !stale.some((s) => s.d.id === d.id));
+  const stalled = (await dealHealth()).filter((h) => h.stalled && !stale.some((x) => x.d.id === h.deal.id));
   const competitor = allMeetings.filter((m) => daysBetween(m.startedAt, now) <= 7 && m.summary?.competitor === "있음");
 
   const rows = reps.map((r) => {
@@ -86,11 +87,17 @@ export default async function Dashboard() {
 
         <section className="card col-1 stack" style={{ gap: 10 }}>
           <h2 style={{ fontSize: 17 }}>살펴볼 고객</h2>
-          {stale.length + competitor.length + noNext.length === 0 && <span className="small muted">지금은 없습니다.</span>}
+          {stale.length + competitor.length + noNext.length + stalled.length === 0 && <span className="small muted">지금은 없습니다.</span>}
           {stale.map(({ d, days }) => (
             <Link key={d.id} href={`/admin/customers?id=${d.companyId}`} className="alert bad">
               <span className="t">{d.company.name} · {days >= 99 ? "접촉 기록 없음" : `${days}일째 연락 없음`}</span>
               <span className="small">담당 {d.owner.name} · {d.title}</span>
+            </Link>
+          ))}
+          {stalled.map((h) => (
+            <Link key={h.deal.id} href="/admin/pipeline" className="alert bad">
+              <span className="t">{h.deal.company.name} · {h.deal.stage} 단계 {h.daysInStage}일째 정체</span>
+              <span className="small">담당 {h.deal.owner.name} · {h.deal.title}</span>
             </Link>
           ))}
           {competitor.map((m) => (

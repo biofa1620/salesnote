@@ -27,6 +27,11 @@ export const mockProvider: AiProvider = {
     ];
   },
 
+  async transcribeMemo() {
+    await wait(500);
+    return "다음 주 화요일까지 도입 범위 회신 주기로 함. 단가표 먼저 메일로 보내기.";
+  },
+
   async summarize({ companyName }) {
     await wait(800);
     return {

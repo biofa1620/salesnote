@@ -3,6 +3,7 @@ import { asc, desc, eq } from "drizzle-orm";
 import { db, companies, deals } from "@/db";
 import { STAGES, STAGE_PROB, daysBetween, hhmm, md, relDay } from "@/lib/format";
 import { lastContactByCompany } from "@/lib/queries";
+import { CompanyInfoPanel } from "@/components/CompanyInfoPanel";
 
 export const dynamic = "force-dynamic";
 const GRID = "minmax(0,1.6fr) minmax(0,.8fr) minmax(0,.8fr) minmax(0,1.1fr)";
@@ -86,6 +87,8 @@ export default async function Customers({ searchParams }: { searchParams: Promis
                 <span className="xs muted">단계 기준 수주확률 {STAGE_PROB[sel.deal.stage] ?? 0}%</span>
               </section>
             ) : <span className="small muted">진행 중인 딜이 없습니다.</span>}
+
+            <CompanyInfoPanel key={sel.c.id} compact companyId={sel.c.id} bizNo={sel.c.bizNo} info={sel.c.info ?? null} />
 
             <section className="stack" style={{ gap: 8 }}>
               <h3 style={{ fontSize: 14 }}>담당자 (명함)</h3>

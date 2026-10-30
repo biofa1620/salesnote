@@ -4,7 +4,7 @@ import path from "node:path";
 
 const root = () => path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
 
-export async function saveFile(folder: "cards" | "audio", file: File) {
+export async function saveFile(folder: "cards" | "audio" | "materials", file: File) {
   const ext = (file.name.split(".").pop() || "bin").replace(/[^a-z0-9]/gi, "").slice(0, 8) || "bin";
   const name = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
   const dir = path.join(root(), folder);

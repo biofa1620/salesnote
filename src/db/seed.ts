@@ -1,6 +1,9 @@
 // 데모용 샘플 데이터. 고객사·사람 이름은 모두 지어낸 예시입니다.
 // 날짜는 실행한 날을 기준으로 만들어서, 언제 실행해도 "오늘" 화면이 채워집니다.
-import { db, users, companies, contacts, deals, events, meetings, comments, activities } from "./index";
+import { db, users, companies, contacts, deals, events, meetings, comments, activities, materials, shares } from "./index";
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { mockCompanyInfo } from "../lib/company-info/mock";
 import type { MeetingSummary } from "./schema";
 
 function at(dayOffset: number, hhmm: string) {
@@ -13,7 +16,7 @@ function at(dayOffset: number, hhmm: string) {
 const plus = (d: Date, min: number) => new Date(d.getTime() + min * 60000);
 
 async function main() {
-  for (const t of [comments, activities, meetings, events, deals, contacts, companies, users]) {
+  for (const t of [shares, materials, comments, activities, meetings, events, deals, contacts, companies, users]) {
     await db.delete(t);
   }
 
@@ -67,12 +70,12 @@ async function main() {
       await db
         .insert(deals)
         .values([
-          { companyId: co["한빛물산"].id, ownerId: kim.id, title: "사내 알림 메시지 도입", stage: "미팅" },
-          { companyId: co["세온테크"].id, ownerId: kim.id, title: "고객 안내 문자 자동화", stage: "미팅" },
-          { companyId: co["대한로지텍"].id, ownerId: jung.id, title: "알림톡 단가 재계약", stage: "협상" },
-          { companyId: co["미래카드"].id, ownerId: kim.id, title: "제휴 타겟문자 공동 상품", stage: "제안" },
-          { companyId: co["오션푸드"].id, ownerId: jung.id, title: "주문 알림톡 도입", stage: "발굴" },
-          { companyId: co["그린로직스"].id, ownerId: park.id, title: "배송 안내 문자 전환", stage: "미팅" },
+          { companyId: co["한빛물산"].id, ownerId: kim.id, title: "사내 알림 메시지 도입", stage: "미팅", stageChangedAt: at(-8, "11:00") },
+          { companyId: co["세온테크"].id, ownerId: kim.id, title: "고객 안내 문자 자동화", stage: "미팅", stageChangedAt: at(-1, "12:00") },
+          { companyId: co["대한로지텍"].id, ownerId: jung.id, title: "알림톡 단가 재계약", stage: "협상", stageChangedAt: at(-12, "10:00") },
+          { companyId: co["미래카드"].id, ownerId: kim.id, title: "제휴 타겟문자 공동 상품", stage: "제안", stageChangedAt: at(-11, "16:00") },
+          { companyId: co["오션푸드"].id, ownerId: jung.id, title: "주문 알림톡 도입", stage: "발굴", stageChangedAt: at(-3, "11:00") },
+          { companyId: co["그린로직스"].id, ownerId: park.id, title: "배송 안내 문자 전환", stage: "미팅", stageChangedAt: at(-22, "16:00") },
         ])
         .returning()
     ).map((d) => [d.title, d])
@@ -162,7 +165,58 @@ async function main() {
     { userId: kim.id, companyId: co["한빛물산"].id, contactId: ct["박지훈"].id, type: "CARD", text: "한빛물산 박지훈 팀장 명함 등록", sub: "메시징 세미나", createdAt: at(-16, "14:20") },
   ]);
 
+  // 기업 정보 (한빛물산만 미리 연동된 상태로 둡니다)
+  const { eq } = await import("drizzle-orm");
+  await db.update(companies).set({ bizNo: "000-00-00001", info: mockCompanyInfo("한빛물산") }).where(eq(companies.id, co["한빛물산"].id));
+
+  // 자료실 샘플 파일
+  const dir = path.resolve(process.env.UPLOAD_DIR ?? "./uploads", "materials");
+  mkdirSync(dir, { recursive: true });
+  const files = [
+    { title: "알림톡 템플릿 작성 가이드", category: "가이드", description: "알림톡 템플릿 심사 기준과 작성 예시", fileName: "alimtalk-template-guide.pdf", label: "Alimtalk Template Guide (sample)" },
+    { title: "RCS 메시지 소개서", category: "브로슈어", description: "RCS 메시지 상품 소개", fileName: "rcs-brochure.pdf", label: "RCS Message Brochure (sample)" },
+    { title: "메시징 연동 API 규격서", category: "규격서", description: "발송 API 연동 규격 (개발 담당자용)", fileName: "messaging-api-spec.pdf", label: "Messaging API Spec (sample)" },
+  ];
+  const mats = await db
+    .insert(materials)
+    .values(
+      files.map((f) => {
+        writeFileSync(path.join(dir, f.fileName), samplePdf(f.label));
+        return { title: f.title, category: f.category, description: f.description, fileName: f.fileName, filePath: `materials/${f.fileName}`, createdById: lead.id, createdAt: at(-30, "09:00") };
+      })
+    )
+    .returning();
+  await db.insert(shares).values([
+    { token: "sample-share-1", materialId: mats[0].id, userId: jung.id, contactId: ct["한도윤"].id, companyId: co["대한로지텍"].id, openCount: 2, firstOpenedAt: at(-1, "13:10"), createdAt: at(-1, "11:00") },
+    { token: "sample-share-2", materialId: mats[2].id, userId: kim.id, contactId: ct["이수민"].id, companyId: co["세온테크"].id, createdAt: at(-1, "12:30") },
+  ]);
+  await db.insert(activities).values([
+    { userId: jung.id, companyId: co["대한로지텍"].id, contactId: ct["한도윤"].id, type: "SHARE", text: "대한로지텍 한도윤 차장에게 '알림톡 템플릿 작성 가이드' 전송", sub: "고객 열람 2회", createdAt: at(-1, "11:00") },
+    { userId: kim.id, companyId: co["세온테크"].id, contactId: ct["이수민"].id, type: "SHARE", text: "세온테크 이수민 과장에게 '메시징 연동 API 규격서' 전송", sub: "아직 열람 안 함", createdAt: at(-1, "12:30") },
+  ]);
+
   console.log("샘플 데이터를 넣었습니다.");
+}
+
+/** 영문 한 줄짜리 샘플 PDF (실제 자료로 바꿔 올리면 됩니다) */
+function samplePdf(label: string) {
+  const text = label.replace(/[()\\]/g, "");
+  const objs = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    "",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  const stream = `BT /F1 20 Tf 60 760 Td (${text}) Tj 0 -30 Td /F1 12 Tf (SalesNote sample file - replace with the real document.) Tj ET`;
+  objs[3] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+  let out = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  objs.forEach((o, i) => { offsets.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const xref = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + offsets.map((n) => `${String(n).padStart(10, "0")} 00000 n \n`).join("");
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return out;
 }
 
 main().catch((e) => {
