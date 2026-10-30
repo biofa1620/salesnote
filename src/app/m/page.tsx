@@ -37,7 +37,7 @@ export default async function MobileHome() {
           <span className="muted small">{mdDow(today)}</span>
           <h1 className="m-title">{u.name}님, 오늘 미팅 {visits.filter((v) => v.type === "MEETING").length}건</h1>
         </div>
-        <span className="avatar">{u.name.slice(0, 1)}</span>
+        <Link href="/login" className="avatar" aria-label="사용자 바꾸기" title="사용자 바꾸기">{u.name.slice(0, 1)}</Link>
       </header>
 
       <Link href="/m/scan" className="row" style={{ gap: 14, padding: 16, borderRadius: 12, background: "var(--primary)", color: "#fff" }}>

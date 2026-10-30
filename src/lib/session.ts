@@ -21,6 +21,6 @@ export async function requireUser() {
 
 export async function requireLead() {
   const u = await requireUser();
-  if (u.role === "REP") redirect("/m");
+  if (u.role === "REP") redirect("/login?need=lead"); // 영업사원 계정으로 팀장 웹에 오면 계정 고르기로
   return u;
 }
