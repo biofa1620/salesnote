@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { db, products, quotes } from "@/db";
 import { QuoteForm } from "@/components/QuoteForm";
+import { requireUser } from "@/lib/session";
 import { IBack } from "@/components/Icons";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,9 @@ export default async function NewQuote({ searchParams }: { searchParams: Promise
   if (!contactId) notFound();
   const contact = await db.query.contacts.findFirst({ where: (t, { eq }) => eq(t.id, contactId), with: { company: true } });
   if (!contact) notFound();
+  const me = await requireUser();
+  // 연락처는 내가 마지막으로 쓴 번호를 기본값으로
+  const lastMine = await db.query.quotes.findFirst({ where: and(eq(quotes.ownerId, me.id), isNotNull(quotes.sellerPhone)), orderBy: desc(quotes.createdAt) });
   const list = await db.query.products.findMany({ where: eq(products.active, true), orderBy: asc(products.name) });
   return (
     <div>
@@ -31,10 +35,11 @@ export default async function NewQuote({ searchParams }: { searchParams: Promise
           contactId={contact.id}
           contactLabel={`${contact.company.name} ${contact.name} ${contact.title ?? ""}`.trim()}
           defaultTitle={`${contact.company.name} 견적`}
+          defaultPhone={parent?.sellerPhone ?? lastMine?.sellerPhone ?? ""}
           parent={parent ? {
             id: parent.id, title: parent.title, note: parent.note, rejectReason: parent.rejectReason,
             items: parent.items.filter((i) => i.productId && list.some((p) => p.id === i.productId)).sort((a, b) => a.sort - b.sort)
-              .map((i) => ({ productId: i.productId!, qty: i.qty, unitPrice: i.unitPrice })),
+              .map((i) => ({ productId: i.productId!, qty: i.qty, unitPrice: i.unitPrice, note: i.note ?? "" })),
           } : null}
         />
       )}

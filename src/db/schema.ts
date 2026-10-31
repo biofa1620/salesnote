@@ -156,6 +156,7 @@ export const quotes = sqliteTable("quotes", {
   total: integer("total").notNull().default(0), // 견적 합계 (부가세 별도)
   validUntil: integer("valid_until", { mode: "timestamp" }),
   note: text("note"),
+  sellerPhone: text("seller_phone"), // 견적서에 찍히는 영업사원 연락처 (작성할 때 입력)
   approvedById: text("approved_by_id").references(() => users.id),
   approvedAt: integer("approved_at", { mode: "timestamp" }),
   rejectReason: text("reject_reason"),
@@ -174,6 +175,7 @@ export const quoteItems = sqliteTable("quote_items", {
   qty: integer("qty").notNull(),
   listPrice: integer("list_price").notNull(), // 작성 당시 정가
   unitPrice: integer("unit_price").notNull(), // 견적 단가
+  note: text("note"), // 비고
   sort: integer("sort").notNull().default(0),
 });
 

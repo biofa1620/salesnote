@@ -18,5 +18,12 @@ export const QUOTE_STATUS: Record<string, { label: string; cls: string }> = {
   SENT: { label: "발송됨", cls: "ok" },
 };
 
-/** 견적서에 찍히는 공급자 이름 (.env의 SELLER_NAME) */
-export const sellerName = () => process.env.SELLER_NAME || "다우기술";
+/** 견적서에 찍히는 공급자 정보 (.env로 바꿀 수 있음) */
+export const seller = () => ({
+  name: process.env.SELLER_NAME || "주식회사 다우기술",
+  ceo: process.env.SELLER_CEO || "김윤덕",
+  address: process.env.SELLER_ADDRESS || "경기도 성남시 수정구 금토로 69 다우디지털스퀘어",
+  bizNo: process.env.SELLER_BIZ_NO || "",
+  logo: process.env.SELLER_LOGO || "/brand/logo.png", // public/brand/logo.png 에 회사 CI 파일을 넣으세요
+});
+export const sellerName = () => seller().name;

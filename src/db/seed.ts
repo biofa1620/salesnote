@@ -210,8 +210,8 @@ async function main() {
         .returning()
     ).map((p) => [p.name, p])
   );
-  const item = (name: string, qty: number, unitPrice?: number, sort = 0) => ({
-    productId: prod[name].id, name, unit: prod[name].unit, qty, listPrice: prod[name].listPrice, unitPrice: unitPrice ?? prod[name].listPrice, sort,
+  const item = (name: string, qty: number, unitPrice?: number, sort = 0, note: string | null = null) => ({
+    productId: prod[name].id, name, unit: prod[name].unit, qty, listPrice: prod[name].listPrice, unitPrice: unitPrice ?? prod[name].listPrice, sort, note,
   });
   const mkQuote = async (q: typeof quotes.$inferInsert, items: ReturnType<typeof item>[]) => {
     const totalList = items.reduce((a, i) => a + i.qty * i.listPrice, 0);
@@ -221,12 +221,12 @@ async function main() {
     return row;
   };
   await mkQuote(
-    { token: "sample-quote-1", companyId: co["대한로지텍"].id, contactId: ct["한도윤"].id, ownerId: jung.id, title: "알림톡 단가 재계약 견적", status: "PENDING", validUntil: at(14, "18:00"), note: "월 30만 건 기준, 1년 약정 조건", createdAt: at(0, "11:40") },
-    [item("알림톡 발송", 300000, 7, 0), item("문자 LMS", 20000, 28, 1)]
+    { token: "sample-quote-1", companyId: co["대한로지텍"].id, contactId: ct["한도윤"].id, ownerId: jung.id, title: "알림톡 단가 재계약 견적", status: "PENDING", validUntil: at(14, "18:00"), note: "월 30만 건 기준, 1년 약정 조건", sellerPhone: "010-2345-6789", createdAt: at(0, "11:40") },
+    [item("알림톡 발송", 300000, 7, 0, "월 발송량 기준"), item("문자 LMS", 20000, 28, 1, "알림톡 실패 시 대체 발송")]
   );
   await mkQuote(
-    { token: "sample-quote-2", companyId: co["미래카드"].id, contactId: ct["윤재호"].id, ownerId: kim.id, title: "제휴 타겟문자 공동 상품 견적", status: "SENT", approvedById: lead.id, approvedAt: at(-3, "10:00"), sentAt: at(-3, "10:30"), openCount: 3, firstOpenedAt: at(-3, "14:00"), validUntil: at(11, "18:00"), createdAt: at(-3, "09:30") },
-    [item("문자 LMS", 100000, undefined, 0), item("연동 개발 지원", 1, undefined, 1)]
+    { token: "sample-quote-2", companyId: co["미래카드"].id, contactId: ct["윤재호"].id, ownerId: kim.id, title: "제휴 타겟문자 공동 상품 견적", status: "SENT", approvedById: lead.id, approvedAt: at(-3, "10:00"), sentAt: at(-3, "10:30"), openCount: 3, firstOpenedAt: at(-3, "14:00"), validUntil: at(11, "18:00"), sellerPhone: "010-1234-5678", createdAt: at(-3, "09:30") },
+    [item("문자 LMS", 100000, undefined, 0, "월 기준"), item("연동 개발 지원", 1, undefined, 1, "최초 1회")]
   );
   await db.insert(activities).values([
     { userId: jung.id, companyId: co["대한로지텍"].id, type: "QUOTE", text: "대한로지텍 '알림톡 단가 재계약 견적' 승인 요청", sub: "정가 외 금액 포함", link: "/admin/quotes", createdAt: at(0, "11:40") },

@@ -7,10 +7,10 @@ import { totals, won } from "@/lib/quotes";
 import { IPlus } from "./Icons";
 
 type Product = { id: string; name: string; unit: string; listPrice: number };
-type Row = { productId: string; qty: number; unitPrice: number };
+type Row = { productId: string; qty: number; unitPrice: number; note: string };
 
 export function QuoteForm(p: {
-  products: Product[]; contactId: string; contactLabel: string; defaultTitle: string;
+  products: Product[]; contactId: string; contactLabel: string; defaultTitle: string; defaultPhone: string;
   parent?: { id: string; title: string; note: string | null; items: Row[]; rejectReason: string | null } | null;
 }) {
   const router = useRouter();
@@ -18,7 +18,8 @@ export function QuoteForm(p: {
   const [title, setTitle] = useState(p.parent?.title ?? p.defaultTitle);
   const [note, setNote] = useState(p.parent?.note ?? "");
   const [validDays, setValidDays] = useState(14);
-  const [rows, setRows] = useState<Row[]>(p.parent?.items ?? (first ? [{ productId: first.id, qty: 1, unitPrice: first.listPrice }] : []));
+  const [phone, setPhone] = useState(p.defaultPhone);
+  const [rows, setRows] = useState<Row[]>(p.parent?.items ?? (first ? [{ productId: first.id, qty: 1, unitPrice: first.listPrice, note: "" }] : []));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -28,9 +29,10 @@ export function QuoteForm(p: {
   const set = (i: number, patch: Partial<Row>) => setRows(rows.map((r, k) => (k === i ? { ...r, ...patch } : r)));
 
   async function submit() {
+    if (!phone.trim()) { setErr("견적서에 들어갈 연락처를 넣어 주세요"); return; }
     setBusy(true); setErr(null);
     try {
-      const r = await createQuote({ contactId: p.contactId, title, note, validDays, parentId: p.parent?.id ?? null, items: rows });
+      const r = await createQuote({ contactId: p.contactId, title, note, validDays, parentId: p.parent?.id ?? null, sellerPhone: phone, items: rows });
       router.push(`/m/quotes/${r.id}`);
       router.refresh();
     } catch (e) {
@@ -44,6 +46,7 @@ export function QuoteForm(p: {
       {p.parent?.rejectReason && <div className="alert bad"><span className="t">반려 사유</span><span className="small">{p.parent.rejectReason}</span></div>}
       <span className="small muted">받는 분: {p.contactLabel}</span>
       <label className="field">견적 제목<input className="input" value={title} onChange={(e) => setTitle(e.target.value)} /></label>
+      <label className="field">내 연락처 (견적서에 표시)<input className="input" type="tel" inputMode="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="예: 010-1234-5678" /></label>
 
       <section className="stack" style={{ gap: 10 }}>
         <h2 style={{ fontSize: 15 }}>품목</h2>
@@ -61,17 +64,18 @@ export function QuoteForm(p: {
                 {rows.length > 1 && <button type="button" className="btn sm" aria-label="품목 빼기" onClick={() => setRows(rows.filter((_, k) => k !== i))}>빼기</button>}
               </div>
               <div className="grid2" style={{ gap: 8 }}>
-                <label className="field">수량 ({pr.unit})<input className="input" type="number" inputMode="numeric" min={1} value={r.qty} onChange={(e) => set(i, { qty: Number(e.target.value) })} /></label>
                 <label className="field">단가 (정가 {won(pr.listPrice)})<input className="input" type="number" inputMode="numeric" min={0} value={r.unitPrice} onChange={(e) => set(i, { unitPrice: Number(e.target.value) })} /></label>
+                <label className="field">발송량 ({pr.unit})<input className="input" type="number" inputMode="numeric" min={1} value={r.qty} onChange={(e) => set(i, { qty: Number(e.target.value) })} /></label>
               </div>
+              <label className="field">비고<input className="input" value={r.note} onChange={(e) => set(i, { note: e.target.value })} placeholder="예: 월 기준, 실패 시 대체 발송" /></label>
               <div className="between small">
                 {off ? <span className="badge warn">정가 대비 {rate > 0 ? "+" : ""}{rate}%</span> : <span className="badge gray">정가</span>}
-                <b>{won(r.qty * r.unitPrice)}</b>
+                <span>금액 <b>{won(r.qty * r.unitPrice)}</b></span>
               </div>
             </div>
           );
         })}
-        <button type="button" className="btn sm" onClick={() => first && setRows([...rows, { productId: first.id, qty: 1, unitPrice: first.listPrice }])}><IPlus size={16} />품목 추가</button>
+        <button type="button" className="btn sm" onClick={() => first && setRows([...rows, { productId: first.id, qty: 1, unitPrice: first.listPrice, note: "" }])}><IPlus size={16} />품목 추가</button>
       </section>
 
       <div className="grid2">

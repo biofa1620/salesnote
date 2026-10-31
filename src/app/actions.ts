@@ -168,19 +168,21 @@ export async function createShare(materialId: string, contactId: string | null) 
 
 /** 견적 저장. 정가는 서버의 상품 마스터 값으로 다시 계산합니다 (화면 값을 믿지 않음). */
 export async function createQuote(input: {
-  contactId: string; title: string; validDays: number; note: string; parentId?: string | null;
-  items: { productId: string; qty: number; unitPrice: number }[];
+  contactId: string; title: string; validDays: number; note: string; parentId?: string | null; sellerPhone: string;
+  items: { productId: string; qty: number; unitPrice: number; note?: string }[];
 }) {
   const u = await requireUser();
   const contact = await db.query.contacts.findFirst({ where: (t, { eq }) => eq(t.id, input.contactId), with: { company: true } });
   if (!contact) throw new Error("고객이 없습니다");
   const rows = input.items.filter((i) => i.productId && i.qty > 0);
   if (rows.length === 0) throw new Error("품목을 하나 이상 넣어 주세요");
+  const sellerPhone = input.sellerPhone?.trim();
+  if (!sellerPhone) throw new Error("견적서에 들어갈 연락처를 넣어 주세요");
   const master = await db.query.products.findMany({ where: inArray(products.id, rows.map((r) => r.productId)) });
   const items = rows.map((r, i) => {
     const p = master.find((m) => m.id === r.productId);
     if (!p) throw new Error("없는 상품이 있습니다");
-    return { productId: p.id, name: p.name, unit: p.unit, qty: Math.round(r.qty), listPrice: p.listPrice, unitPrice: Math.max(0, Math.round(r.unitPrice)), sort: i };
+    return { productId: p.id, name: p.name, unit: p.unit, qty: Math.round(r.qty), listPrice: p.listPrice, unitPrice: Math.max(0, Math.round(r.unitPrice)), note: r.note?.trim() || null, sort: i };
   });
   const totalList = items.reduce((a, i) => a + i.qty * i.listPrice, 0);
   const total = items.reduce((a, i) => a + i.qty * i.unitPrice, 0);
@@ -197,6 +199,7 @@ export async function createQuote(input: {
       status: needsApproval ? "PENDING" : "APPROVED", needsApproval, totalList, total,
       validUntil: new Date(Date.now() + Math.max(1, input.validDays || 14) * 86400000),
       note: input.note.trim() || null,
+      sellerPhone,
     })
     .returning();
   await db.insert(quoteItems).values(items.map((i) => ({ ...i, quoteId: q.id })));
