@@ -126,7 +126,58 @@ export const shares = sqliteTable("shares", {
   createdAt: createdAt(),
 });
 
-/** 활동 이력 (활동 타임라인). type: MEETING | CALL | CARD | SCHEDULE | SHARE */
+/** 상품·정가 마스터. 정가 외 금액이 들어간 견적은 팀장 승인을 받아야 합니다. */
+export const products = sqliteTable("products", {
+  id: id(),
+  name: text("name").notNull(),
+  unit: text("unit").notNull().default("건"),
+  listPrice: integer("list_price").notNull(), // 정가 (원, 부가세 별도)
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdAt: createdAt(),
+});
+
+/**
+ * 견적서. status: PENDING(승인 대기) | APPROVED(발송 가능) | REJECTED(반려) | SENT(발송됨)
+ * 정가 그대로면 바로 APPROVED, 하나라도 정가와 다르면 PENDING으로 팀장 승인을 받습니다.
+ */
+export const quotes = sqliteTable("quotes", {
+  id: id(),
+  token: text("token").notNull().unique(), // 고객용 견적서 링크 /q/<token>
+  companyId: text("company_id").notNull().references(() => companies.id),
+  contactId: text("contact_id").references(() => contacts.id),
+  dealId: text("deal_id").references(() => deals.id),
+  ownerId: text("owner_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  version: integer("version").notNull().default(1),
+  parentId: text("parent_id"), // 수정본이면 이전 견적
+  status: text("status").notNull().default("PENDING"),
+  needsApproval: integer("needs_approval", { mode: "boolean" }).notNull().default(false),
+  totalList: integer("total_list").notNull().default(0), // 정가 합계
+  total: integer("total").notNull().default(0), // 견적 합계 (부가세 별도)
+  validUntil: integer("valid_until", { mode: "timestamp" }),
+  note: text("note"),
+  approvedById: text("approved_by_id").references(() => users.id),
+  approvedAt: integer("approved_at", { mode: "timestamp" }),
+  rejectReason: text("reject_reason"),
+  sentAt: integer("sent_at", { mode: "timestamp" }),
+  openCount: integer("open_count").notNull().default(0),
+  firstOpenedAt: integer("first_opened_at", { mode: "timestamp" }),
+  createdAt: createdAt(),
+});
+
+export const quoteItems = sqliteTable("quote_items", {
+  id: id(),
+  quoteId: text("quote_id").notNull().references(() => quotes.id),
+  productId: text("product_id").references(() => products.id),
+  name: text("name").notNull(),
+  unit: text("unit").notNull(),
+  qty: integer("qty").notNull(),
+  listPrice: integer("list_price").notNull(), // 작성 당시 정가
+  unitPrice: integer("unit_price").notNull(), // 견적 단가
+  sort: integer("sort").notNull().default(0),
+});
+
+/** 활동 이력 (활동 타임라인). type: MEETING | CALL | CARD | SCHEDULE | SHARE | QUOTE */
 export const activities = sqliteTable("activities", {
   id: id(),
   userId: text("user_id").notNull().references(() => users.id),
@@ -209,6 +260,16 @@ export const sharesRelations = relations(shares, ({ one }) => ({
   user: one(users, { fields: [shares.userId], references: [users.id] }),
   contact: one(contacts, { fields: [shares.contactId], references: [contacts.id] }),
   company: one(companies, { fields: [shares.companyId], references: [companies.id] }),
+}));
+export const quotesRelations = relations(quotes, ({ one, many }) => ({
+  company: one(companies, { fields: [quotes.companyId], references: [companies.id] }),
+  contact: one(contacts, { fields: [quotes.contactId], references: [contacts.id] }),
+  owner: one(users, { fields: [quotes.ownerId], references: [users.id] }),
+  approvedBy: one(users, { fields: [quotes.approvedById], references: [users.id] }),
+  items: many(quoteItems),
+}));
+export const quoteItemsRelations = relations(quoteItems, ({ one }) => ({
+  quote: one(quotes, { fields: [quoteItems.quoteId], references: [quotes.id] }),
 }));
 export const activitiesRelations = relations(activities, ({ one }) => ({
   user: one(users, { fields: [activities.userId], references: [users.id] }),

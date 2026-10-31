@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { db, events, activities, meetings, comments, deals, materials, shares, type MeetingSummary } from "@/db";
+import { db, events, activities, meetings, comments, deals, materials, shares, products, quotes, quoteItems, type MeetingSummary } from "@/db";
+import { inArray } from "drizzle-orm";
+import { STAGES } from "@/lib/format";
 import { saveFile } from "@/lib/storage";
 import { requireLead, requireUser } from "@/lib/session";
 import { md, hhmm } from "@/lib/format";
@@ -160,6 +162,103 @@ export async function createShare(materialId: string, contactId: string | null) 
   });
   revalidatePath("/", "layout");
   return { path: `/s/${token}`, title: mat.title };
+}
+
+/* ───────────── 견적 ───────────── */
+
+/** 견적 저장. 정가는 서버의 상품 마스터 값으로 다시 계산합니다 (화면 값을 믿지 않음). */
+export async function createQuote(input: {
+  contactId: string; title: string; validDays: number; note: string; parentId?: string | null;
+  items: { productId: string; qty: number; unitPrice: number }[];
+}) {
+  const u = await requireUser();
+  const contact = await db.query.contacts.findFirst({ where: (t, { eq }) => eq(t.id, input.contactId), with: { company: true } });
+  if (!contact) throw new Error("고객이 없습니다");
+  const rows = input.items.filter((i) => i.productId && i.qty > 0);
+  if (rows.length === 0) throw new Error("품목을 하나 이상 넣어 주세요");
+  const master = await db.query.products.findMany({ where: inArray(products.id, rows.map((r) => r.productId)) });
+  const items = rows.map((r, i) => {
+    const p = master.find((m) => m.id === r.productId);
+    if (!p) throw new Error("없는 상품이 있습니다");
+    return { productId: p.id, name: p.name, unit: p.unit, qty: Math.round(r.qty), listPrice: p.listPrice, unitPrice: Math.max(0, Math.round(r.unitPrice)), sort: i };
+  });
+  const totalList = items.reduce((a, i) => a + i.qty * i.listPrice, 0);
+  const total = items.reduce((a, i) => a + i.qty * i.unitPrice, 0);
+  const needsApproval = items.some((i) => i.unitPrice !== i.listPrice);
+  const parent = input.parentId ? await db.query.quotes.findFirst({ where: eq(quotes.id, input.parentId) }) : null;
+  const deal = await db.query.deals.findFirst({ where: eq(deals.companyId, contact.companyId) });
+  const [q] = await db
+    .insert(quotes)
+    .values({
+      token: crypto.randomUUID().replace(/-/g, "").slice(0, 16),
+      companyId: contact.companyId, contactId: contact.id, dealId: deal?.id ?? null, ownerId: u.id,
+      title: input.title.trim() || `${contact.company.name} 견적`,
+      version: parent ? parent.version + 1 : 1, parentId: parent?.id ?? null,
+      status: needsApproval ? "PENDING" : "APPROVED", needsApproval, totalList, total,
+      validUntil: new Date(Date.now() + Math.max(1, input.validDays || 14) * 86400000),
+      note: input.note.trim() || null,
+    })
+    .returning();
+  await db.insert(quoteItems).values(items.map((i) => ({ ...i, quoteId: q.id })));
+  await db.insert(activities).values({
+    userId: u.id, companyId: contact.companyId, contactId: contact.id, type: "QUOTE",
+    text: `${contact.company.name} '${q.title}'${q.version > 1 ? ` ${q.version}차` : ""} ${needsApproval ? "승인 요청" : "작성"}`,
+    sub: needsApproval ? "정가 외 금액 포함 · 팀장 승인 필요" : "정가 견적 · 바로 발송 가능", link: "/admin/quotes",
+  });
+  revalidatePath("/", "layout");
+  return { id: q.id };
+}
+
+/** 팀장 승인·반려 */
+export async function decideQuote(f: FormData) {
+  const lead = await requireLead();
+  const id = str(f, "quoteId")!;
+  const ok = str(f, "decision") === "approve";
+  const q = await db.query.quotes.findFirst({ where: eq(quotes.id, id), with: { company: true } });
+  if (!q || q.status !== "PENDING") return;
+  await db.update(quotes).set(ok
+    ? { status: "APPROVED", approvedById: lead.id, approvedAt: new Date(), rejectReason: null }
+    : { status: "REJECTED", approvedById: lead.id, approvedAt: new Date(), rejectReason: str(f, "reason") ?? "사유 없음" }
+  ).where(eq(quotes.id, id));
+  await db.insert(activities).values({
+    userId: q.ownerId, companyId: q.companyId, type: "QUOTE",
+    text: `${q.company.name} '${q.title}' ${ok ? "승인" : "반려"} (${lead.name})`,
+    sub: ok ? "이제 고객에게 보낼 수 있습니다" : `사유: ${str(f, "reason") ?? "사유 없음"}`, link: "/admin/quotes",
+  });
+  revalidatePath("/", "layout");
+}
+
+/** 견적 발송 표시 (휴대폰 공유하기로 링크를 보낸 뒤 호출). 딜이 제안 전 단계면 '제안'으로 올립니다. */
+export async function markQuoteSent(quoteId: string) {
+  const u = await requireUser();
+  const q = await db.query.quotes.findFirst({ where: eq(quotes.id, quoteId), with: { company: true, contact: true } });
+  if (!q || q.ownerId !== u.id || (q.status !== "APPROVED" && q.status !== "SENT")) throw new Error("보낼 수 없는 견적입니다");
+  const first = q.status === "APPROVED";
+  await db.update(quotes).set({ status: "SENT", sentAt: q.sentAt ?? new Date() }).where(eq(quotes.id, quoteId));
+  if (first) {
+    await db.insert(activities).values({
+      userId: u.id, companyId: q.companyId, contactId: q.contactId, type: "QUOTE",
+      text: `${q.company.name}${q.contact ? ` ${q.contact.name}` : ""}에게 '${q.title}' 발송`, sub: "아직 열람 안 함", link: "/admin/quotes",
+    });
+    if (q.dealId) {
+      const d = await db.query.deals.findFirst({ where: eq(deals.id, q.dealId) });
+      if (d && STAGES.indexOf(d.stage as (typeof STAGES)[number]) > -1 && STAGES.indexOf(d.stage as (typeof STAGES)[number]) < STAGES.indexOf("제안")) {
+        await db.update(deals).set({ stage: "제안", stageChangedAt: new Date() }).where(eq(deals.id, d.id));
+      }
+    }
+  }
+  revalidatePath("/", "layout");
+  return { path: `/q/${q.token}`, title: q.title };
+}
+
+/** 상품·정가 등록/수정 (팀장) */
+export async function saveProduct(f: FormData) {
+  await requireLead();
+  const id = str(f, "id");
+  const v = { name: str(f, "name") ?? "상품", unit: str(f, "unit") ?? "건", listPrice: Math.max(0, Math.round(Number(str(f, "listPrice") ?? 0))), active: f.get("active") !== "off" };
+  if (id) await db.update(products).set(v).where(eq(products.id, id));
+  else await db.insert(products).values(v);
+  revalidatePath("/", "layout");
 }
 
 export async function logout() {

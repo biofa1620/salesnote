@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
-import { db, contacts, activities, meetings, events, deals } from "@/db";
+import { db, contacts, activities, meetings, events, deals, quotes } from "@/db";
+import { QUOTE_STATUS, won } from "@/lib/quotes";
 import { logCall, setDealStage } from "@/app/actions";
 import { STAGES, hhmm, md, relDay } from "@/lib/format";
 import { IBack, ICalendar, IMail, IMic, INote } from "@/components/Icons";
@@ -27,8 +28,9 @@ export default async function CustomerCard({ params }: { params: Promise<{ id: s
   for (const m of await db.query.meetings.findMany({ where: eq(meetings.companyId, c.companyId) }))
     items.push({ at: m.startedAt, kind: "미팅 · AI 회의록", title: m.title, sub: m.summary?.points[0], href: `/m/meetings/${m.id}` });
   for (const a of await db.query.activities.findMany({ where: eq(activities.companyId, c.companyId) }))
-    if (a.type !== "MEETING") items.push({ at: a.createdAt, kind: { CALL: "통화", CARD: "명함 등록", SCHEDULE: "일정", SHARE: "자료 전송" }[a.type] ?? a.type, title: a.text, sub: a.sub });
+    if (a.type !== "MEETING") items.push({ at: a.createdAt, kind: { CALL: "통화", CARD: "명함 등록", SCHEDULE: "일정", SHARE: "자료 전송", QUOTE: "견적" }[a.type] ?? a.type, title: a.text, sub: a.sub });
   items.sort((a, b) => b.at.getTime() - a.at.getTime());
+  const qs = await db.query.quotes.findMany({ where: eq(quotes.companyId, c.companyId), orderBy: desc(quotes.createdAt), limit: 3 });
   const stalledDays = deal ? Math.floor((now.getTime() - deal.stageChangedAt.getTime()) / 86400000) : 0;
   const hasNext = items.some((it) => it.future);
   const stageIdx = deal ? STAGES.indexOf(deal.stage as (typeof STAGES)[number]) : -1;
@@ -92,6 +94,17 @@ export default async function CustomerCard({ params }: { params: Promise<{ id: s
             </form>
           </div>
         )}
+
+        <section className="card stack" style={{ gap: 8 }}>
+          <div className="between"><h2 style={{ fontSize: 15 }}>견적</h2><Link href={`/m/quotes/new?contactId=${c.id}`} className="btn sm primary">견적 작성</Link></div>
+          {qs.length === 0 && <span className="small muted">아직 견적이 없습니다.</span>}
+          {qs.map((q) => (
+            <Link key={q.id} href={`/m/quotes/${q.id}`} className="between small" style={{ padding: "8px 0", borderTop: "1px solid var(--subtle)" }}>
+              <span className="grow">{q.title}{q.version > 1 ? ` (${q.version}차)` : ""}<br /><span className="xs muted">{won(q.total)}{q.status === "SENT" ? ` · ${q.openCount ? `열람 ${q.openCount}회` : "미열람"}` : ""}</span></span>
+              <span className={`badge ${QUOTE_STATUS[q.status].cls}`}>{QUOTE_STATUS[q.status].label}</span>
+            </Link>
+          ))}
+        </section>
 
         <CompanyInfoPanel companyId={c.companyId} bizNo={c.company.bizNo} info={c.company.info ?? null} />
 

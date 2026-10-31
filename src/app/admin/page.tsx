@@ -31,6 +31,7 @@ export default async function Dashboard() {
   const futureByCompany = new Set(allEvents.filter((e) => e.startAt > now && e.companyId).map((e) => e.companyId));
   const noNext = open.filter((d) => !futureByCompany.has(d.companyId) && !stale.some((s) => s.d.id === d.id));
   const stalled = (await dealHealth()).filter((h) => h.stalled && !stale.some((x) => x.d.id === h.deal.id));
+  const pendingQuotes = (await db.query.quotes.findMany()).filter((q) => q.status === "PENDING").length;
   const competitor = allMeetings.filter((m) => daysBetween(m.startedAt, now) <= 7 && m.summary?.competitor === "있음");
 
   const rows = reps.map((r) => {
@@ -56,6 +57,12 @@ export default async function Dashboard() {
         </div>
         <Link href="/admin/timeline" className="btn sm">활동 전체 보기</Link>
       </header>
+
+      {pendingQuotes > 0 && (
+        <Link href="/admin/quotes" className="alert warn" style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <span className="t">승인을 기다리는 견적이 {pendingQuotes}건 있습니다</span><span className="link">승인하러 가기</span>
+        </Link>
+      )}
 
       <section className="kpis" aria-label="주요 지표">
         <div className="card kpi"><span className="small muted">고객 미팅</span><b>{weekVisits.length}건</b><span className="xs muted">이번 주 지난 미팅 기준</span></div>

@@ -1,6 +1,6 @@
 // 데모용 샘플 데이터. 고객사·사람 이름은 모두 지어낸 예시입니다.
 // 날짜는 실행한 날을 기준으로 만들어서, 언제 실행해도 "오늘" 화면이 채워집니다.
-import { db, users, companies, contacts, deals, events, meetings, comments, activities, materials, shares } from "./index";
+import { db, users, companies, contacts, deals, events, meetings, comments, activities, materials, shares, products, quotes, quoteItems } from "./index";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { mockCompanyInfo } from "../lib/company-info/mock";
@@ -16,7 +16,7 @@ function at(dayOffset: number, hhmm: string) {
 const plus = (d: Date, min: number) => new Date(d.getTime() + min * 60000);
 
 async function main() {
-  for (const t of [shares, materials, comments, activities, meetings, events, deals, contacts, companies, users]) {
+  for (const t of [quoteItems, quotes, products, shares, materials, comments, activities, meetings, events, deals, contacts, companies, users]) {
     await db.delete(t);
   }
 
@@ -193,6 +193,44 @@ async function main() {
   await db.insert(activities).values([
     { userId: jung.id, companyId: co["대한로지텍"].id, contactId: ct["한도윤"].id, type: "SHARE", text: "대한로지텍 한도윤 차장에게 '알림톡 템플릿 작성 가이드' 전송", sub: "고객 열람 2회", createdAt: at(-1, "11:00") },
     { userId: kim.id, companyId: co["세온테크"].id, contactId: ct["이수민"].id, type: "SHARE", text: "세온테크 이수민 과장에게 '메시징 연동 API 규격서' 전송", sub: "아직 열람 안 함", createdAt: at(-1, "12:30") },
+  ]);
+
+  // 상품·정가 (샘플 단가입니다. 팀장 웹 '견적 승인' 화면에서 실제 정가로 바꾸세요)
+  const prod = Object.fromEntries(
+    (
+      await db
+        .insert(products)
+        .values([
+          { name: "알림톡 발송", unit: "건", listPrice: 8 },
+          { name: "문자 SMS", unit: "건", listPrice: 10 },
+          { name: "문자 LMS", unit: "건", listPrice: 30 },
+          { name: "RCS 메시지", unit: "건", listPrice: 12 },
+          { name: "연동 개발 지원", unit: "식", listPrice: 1000000 },
+        ])
+        .returning()
+    ).map((p) => [p.name, p])
+  );
+  const item = (name: string, qty: number, unitPrice?: number, sort = 0) => ({
+    productId: prod[name].id, name, unit: prod[name].unit, qty, listPrice: prod[name].listPrice, unitPrice: unitPrice ?? prod[name].listPrice, sort,
+  });
+  const mkQuote = async (q: typeof quotes.$inferInsert, items: ReturnType<typeof item>[]) => {
+    const totalList = items.reduce((a, i) => a + i.qty * i.listPrice, 0);
+    const total = items.reduce((a, i) => a + i.qty * i.unitPrice, 0);
+    const [row] = await db.insert(quotes).values({ ...q, totalList, total, needsApproval: total !== totalList || items.some((i) => i.unitPrice !== i.listPrice) }).returning();
+    await db.insert(quoteItems).values(items.map((i) => ({ ...i, quoteId: row.id })));
+    return row;
+  };
+  await mkQuote(
+    { token: "sample-quote-1", companyId: co["대한로지텍"].id, contactId: ct["한도윤"].id, ownerId: jung.id, title: "알림톡 단가 재계약 견적", status: "PENDING", validUntil: at(14, "18:00"), note: "월 30만 건 기준, 1년 약정 조건", createdAt: at(0, "11:40") },
+    [item("알림톡 발송", 300000, 7, 0), item("문자 LMS", 20000, 28, 1)]
+  );
+  await mkQuote(
+    { token: "sample-quote-2", companyId: co["미래카드"].id, contactId: ct["윤재호"].id, ownerId: kim.id, title: "제휴 타겟문자 공동 상품 견적", status: "SENT", approvedById: lead.id, approvedAt: at(-3, "10:00"), sentAt: at(-3, "10:30"), openCount: 3, firstOpenedAt: at(-3, "14:00"), validUntil: at(11, "18:00"), createdAt: at(-3, "09:30") },
+    [item("문자 LMS", 100000, undefined, 0), item("연동 개발 지원", 1, undefined, 1)]
+  );
+  await db.insert(activities).values([
+    { userId: jung.id, companyId: co["대한로지텍"].id, type: "QUOTE", text: "대한로지텍 '알림톡 단가 재계약 견적' 승인 요청", sub: "정가 외 금액 포함", link: "/admin/quotes", createdAt: at(0, "11:40") },
+    { userId: kim.id, companyId: co["미래카드"].id, type: "QUOTE", text: "미래카드 '제휴 타겟문자 공동 상품 견적' 발송", sub: "고객 열람 3회", link: "/admin/quotes", createdAt: at(-3, "10:30") },
   ]);
 
   console.log("샘플 데이터를 넣었습니다.");

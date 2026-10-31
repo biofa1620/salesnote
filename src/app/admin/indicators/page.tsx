@@ -13,6 +13,7 @@ const METRICS: Metric[] = [
   { key: "meetings", label: "고객 미팅", unit: "건", desc: "녹음·회의록이 남은 미팅" },
   { key: "calls", label: "통화 기록", unit: "건", desc: "앱에서 남긴 통화" },
   { key: "shares", label: "자료 전송", unit: "건", desc: "브로슈어·규격서 링크 전송" },
+  { key: "quotes", label: "견적 발송", unit: "건", desc: "고객에게 보낸 견적서" },
   { key: "confirmRate", label: "회의록 확정률", unit: "%", desc: "미팅 중 회의록을 확정한 비율" },
   { key: "followDays", label: "후속 조치 속도", unit: "일", desc: "미팅 후 같은 고객에게 다음 행동까지 평균 일수", lowerIsBetter: true, fmt: (n) => n.toFixed(1) },
 ];
@@ -24,9 +25,9 @@ export default async function Indicators({ searchParams }: { searchParams: Promi
   const inP = (d: Date) => d >= from && d <= now;
 
   const reps = await db.query.users.findMany({ where: eq(users.role, "REP") });
-  const [contacts, meetings, acts, shares, events] = await Promise.all([
+  const [contacts, meetings, acts, shares, events, quotes] = await Promise.all([
     db.query.contacts.findMany(), db.query.meetings.findMany(), db.query.activities.findMany(),
-    db.query.shares.findMany(), db.query.events.findMany(),
+    db.query.shares.findMany(), db.query.events.findMany(), db.query.quotes.findMany(),
   ]);
 
   const rows = reps.map((r) => {
@@ -48,6 +49,7 @@ export default async function Indicators({ searchParams }: { searchParams: Promi
         meetings: ms.length,
         calls: acts.filter((a) => a.userId === r.id && a.type === "CALL" && inP(a.createdAt)).length,
         shares: shares.filter((s) => s.userId === r.id && inP(s.createdAt)).length,
+        quotes: quotes.filter((q) => q.ownerId === r.id && q.sentAt && inP(q.sentAt)).length,
         confirmRate: ms.length ? Math.round((ms.filter((m) => m.status === "CONFIRMED").length / ms.length) * 100) : 0,
         followDays: gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : NaN,
       } as Record<string, number>,
@@ -101,7 +103,7 @@ export default async function Indicators({ searchParams }: { searchParams: Promi
         })}
       </div>
       <p className="xs muted" style={{ margin: 0 }}>
-        세로선은 팀 평균, 진한 막대는 평균 이상(후속 조치 속도는 평균 이하)입니다. 견적 발송량과 고객 회신 속도는 견적 기능·메일 연동(2단계) 후에 추가됩니다.
+        세로선은 팀 평균, 진한 막대는 평균 이상(후속 조치 속도는 평균 이하)입니다. 고객 회신 속도는 메일 연동(2단계) 후에 추가됩니다.
       </p>
     </>
   );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { and, asc, eq, gte, lt } from "drizzle-orm";
-import { db, events, meetings, deals } from "@/db";
+import { db, events, meetings, deals, quotes } from "@/db";
+import { inArray } from "drizzle-orm";
 import { requireUser } from "@/lib/session";
 import { addDays, hhmm, mdDow, md, startOfDay, daysBetween, ymd } from "@/lib/format";
 import { lastContactByCompany, dealHealth } from "@/lib/queries";
@@ -30,6 +31,8 @@ export default async function MobileHome() {
 
   const stalled = (await dealHealth()).filter((h) => h.deal.ownerId === u.id && h.stalled && !stale.some((x) => x.d.id === h.deal.id));
 
+  const qTodo = await db.query.quotes.findMany({ where: and(eq(quotes.ownerId, u.id), inArray(quotes.status, ["APPROVED", "REJECTED"])), with: { company: true } });
+
   return (
     <div className="m-page">
       <header className="between" style={{ alignItems: "flex-start" }}>
@@ -50,10 +53,14 @@ export default async function MobileHome() {
         </span>
       </Link>
 
-      <Link href="/m/materials" className="card between" style={{ padding: "12px 16px" }}>
-        <span className="stack" style={{ gap: 2 }}><b>자료 보내기</b><span className="small muted">브로슈어·규격서를 카카오톡·문자 링크로 바로 전송</span></span>
-        <span className="link">열기</span>
-      </Link>
+      <div className="grid2" style={{ gap: 10 }}>
+        <Link href="/m/materials" className="card stack" style={{ padding: "12px 14px", gap: 2 }}>
+          <b>자료 보내기</b><span className="xs muted">브로슈어·규격서 링크 전송</span>
+        </Link>
+        <Link href="/m/quotes" className="card stack" style={{ padding: "12px 14px", gap: 2 }}>
+          <b>내 견적</b><span className="xs muted">승인·발송·열람 확인</span>
+        </Link>
+      </div>
 
       <section className="stack" style={{ gap: 10 }}>
         <div className="between">
@@ -91,7 +98,13 @@ export default async function MobileHome() {
       <section className="stack" style={{ gap: 10 }}>
         <h2 className="m-section-title">해야 할 일</h2>
         <div className="card flush">
-          {drafts.length + todos.length + stale.length + stalled.length === 0 && <div className="list-row muted small">밀린 일이 없습니다.</div>}
+          {drafts.length + todos.length + stale.length + stalled.length + qTodo.length === 0 && <div className="list-row muted small">밀린 일이 없습니다.</div>}
+          {qTodo.map((q) => (
+            <Link key={q.id} href={`/m/quotes/${q.id}`} className="list-row">
+              <span className={`badge ${q.status === "APPROVED" ? "primary" : "bad"}`}>{q.status === "APPROVED" ? "견적 승인됨" : "견적 반려"}</span>
+              <span className="grow">{q.company.name} · {q.status === "APPROVED" ? "고객에게 보내기" : "수정 필요"}</span>
+            </Link>
+          ))}
           {drafts.map((m) => (
             <Link key={m.id} href={`/m/meetings/${m.id}`} className="list-row">
               <span className="badge warn">확정 필요</span><span className="grow">{m.title} 회의록 확인</span>

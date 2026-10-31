@@ -8,6 +8,7 @@ const MENU = [
   ["/admin/schedule", "팀 일정"],
   ["/admin/timeline", "활동 타임라인"],
   ["/admin/meetings", "미팅 카드"],
+  ["/admin/quotes", "견적"],
   ["/admin/customers", "고객사"],
   ["/admin/indicators", "선행지표"],
   ["/admin/materials", "자료실"],
