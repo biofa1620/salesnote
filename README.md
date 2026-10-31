@@ -181,12 +181,20 @@ transcribe(audio, mimeType)       → [{ speaker, text }, …]
 summarize({ companyName, transcript }) → { points, products, budget, decisionMaker, competitor, concern, nextActions }
 ```
 
-1. `src/lib/ai/real.ts` 의 세 함수를 실제 API 호출로 채웁니다.
-   - 명함 OCR 후보: 네이버 클로바 OCR(명함 특화), Google Cloud Vision
+1. `src/lib/ai/real.ts` 의 함수들을 실제 API 호출로 채웁니다.
+   - 명함 OCR: **네이버 클로바 OCR 명함(Name Card) 도메인**으로 연결 완료 (아래 참고)
    - 음성인식 후보: 네이버 클로바 스피치, 리턴제로, Whisper (한국어·화자 분리 성능 비교)
    - 요약 후보: Claude 등 LLM API (데이터 학습 미사용 조건 확인, 응답을 JSON 형식으로 받도록 지시)
-2. `.env` 에 키를 넣고 `AI_PROVIDER="real"` 로 바꿉니다.
+2. `.env` 에 키를 넣고 `AI_PROVIDER="real"` 로 바꿉니다. (명함 OCR만 실제로 연결되고, 음성인식·요약은 당분간 가짜 응답을 계속 씁니다)
 3. 개인정보 처리방침에 외부 API 위탁 사실을 적습니다.
+
+### 명함 OCR (네이버 클로바 OCR) 연결 방법
+
+1. [console.ncloud.com](https://console.ncloud.com) 가입 → **AI Services → CLOVA OCR**
+2. 도메인 생성 시 **명함(Name Card)** 도메인 선택
+3. OCR 빌더에서 **Secret Key** 발급 → `.env`의 `CLOVA_OCR_SECRET`에 입력
+4. **API Gateway 자동 연동**으로 Invoke URL 생성 → 전체 URL을 `.env`의 `CLOVA_OCR_INVOKE_URL`에 입력
+5. `AI_PROVIDER="real"` 로 바꾸고 서버 재시작 → `/m/scan`에서 실제 명함 촬영 테스트
 
 ---
 
