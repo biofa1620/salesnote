@@ -7,10 +7,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "db:push": "drizzle-kit push",
-    "db:seed": "tsx --env-file=.env src/db/seed.ts",
-    "db:reset": "rm -f data/salesnote.db* && npm run db:push && npm run db:seed",
-    "cleanup:audio": "tsx --env-file=.env scripts/cleanup-audio.ts",
+    "db:push": "drizzle-kit push --force",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:reset": "mkdir -p data && npm run db:push && npm run db:seed",
+    "cleanup:audio": "tsx scripts/cleanup-audio.ts",
     "setup": "mkdir -p data uploads && npm run db:push && npm run db:seed"
   },
   "dependencies": {

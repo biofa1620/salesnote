@@ -1,0 +1,7 @@
+node_modules
+.next
+data
+uploads
+.env
+.git
+.DS_Store
