@@ -64,34 +64,34 @@ export function QuoteDoc({ q }: { q: QuoteDocData }) {
       </div>
 
       <div className="scroll-x">
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+        <table className="qd-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
           <thead>
             <tr>
               <th style={{ ...head, textAlign: "left" }}>품목</th>
               <th style={{ ...head, textAlign: "right" }}>단가</th>
               <th style={{ ...head, textAlign: "right" }}>발송량</th>
               <th style={{ ...head, textAlign: "right" }}>금액</th>
-              <th style={{ ...head, textAlign: "left" }}>비고</th>
+              <th className="qd-note" style={{ ...head, textAlign: "left" }}>비고</th>
             </tr>
           </thead>
           <tbody>
             {q.items.map((i, k) => (
               <tr key={k}>
-                <td style={cell}>{i.name}</td>
+                <td style={cell}>{i.name}{i.note && <span className="qd-note-inline xs muted">{i.note}</span>}</td>
                 <td style={num}>{won(i.unitPrice)}</td>
                 <td style={num}>{i.qty.toLocaleString()}{i.unit}</td>
                 <td style={num}>{won(i.qty * i.unitPrice)}</td>
-                <td style={{ ...cell, color: "var(--text-body)" }}>{i.note ?? ""}</td>
+                <td className="qd-note" style={{ ...cell, minWidth: 80, color: "var(--text-body)" }}>{i.note ?? ""}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr><td style={sum} colSpan={3}>공급가액</td><td style={{ ...sum, ...{ textAlign: "right", whiteSpace: "nowrap" } }}>{won(q.total)}</td><td style={sum} /></tr>
-            <tr><td style={{ ...cell, color: "var(--muted)" }} colSpan={3}>부가세 (10%)</td><td style={{ ...num, color: "var(--muted)" }}>{won(vat)}</td><td style={cell} /></tr>
+            <tr><td style={sum} colSpan={3}>공급가액</td><td style={{ ...sum, ...{ textAlign: "right", whiteSpace: "nowrap" } }}>{won(q.total)}</td><td className="qd-note" style={sum} /></tr>
+            <tr><td style={{ ...cell, color: "var(--muted)" }} colSpan={3}>부가세 (10%)</td><td style={{ ...num, color: "var(--muted)" }}>{won(vat)}</td><td className="qd-note" style={cell} /></tr>
             <tr>
               <td style={{ ...sum, fontSize: 14, borderBottom: "1.5px solid var(--text)" }} colSpan={3}>합계</td>
               <td style={{ ...sum, fontSize: 14, textAlign: "right", whiteSpace: "nowrap", borderBottom: "1.5px solid var(--text)" }}>{won(q.total + vat)}</td>
-              <td style={{ ...sum, borderBottom: "1.5px solid var(--text)" }} />
+              <td className="qd-note" style={{ ...sum, borderBottom: "1.5px solid var(--text)" }} />
             </tr>
           </tfoot>
         </table>

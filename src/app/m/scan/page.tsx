@@ -57,11 +57,11 @@ export default function ScanPage() {
           <span style={{ width: 44 }} />
         </div>
         <button type="button" onClick={() => input.current?.click()}
-          style={{ width: 280, height: 164, borderRadius: 10, border: "2px dashed #7f83f4", background: preview ? `center/cover url(${preview})` : "transparent", color: "#c5cbff", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          {!preview && (<><ICamera size={32} color="#c5cbff" /><span>눌러서 명함 찍기</span></>)}
+          style={{ width: 280, height: 164, borderRadius: 10, border: "2px dashed #5aa7dc", background: preview ? `center/cover url(${preview})` : "transparent", color: "#a9d0ec", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          {!preview && (<><ICamera size={32} color="#a9d0ec" /><span>눌러서 명함 찍기</span></>)}
         </button>
         <input ref={input} type="file" accept="image/*" capture="environment" hidden onChange={(e) => onPick(e.target.files?.[0])} />
-        <span className="small" style={{ color: "#c5cbff" }}>
+        <span className="small" style={{ color: "#a9d0ec" }}>
           {busy === "ocr" ? "명함을 읽는 중…" : preview ? "인식 완료 · 내용을 확인해 주세요" : "사진을 고르거나 직접 입력해도 됩니다"}
         </span>
       </div>

@@ -90,7 +90,7 @@ export default async function Indicators({ searchParams }: { searchParams: Promi
                     <div key={r.id} role="listitem" style={{ display: "grid", gridTemplateColumns: "56px 1fr 56px", alignItems: "center", gap: 8 }}>
                       <span className="small">{r.name}</span>
                       <span style={{ position: "relative", height: 14, background: "var(--subtle)", borderRadius: 4 }}>
-                        <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: none ? 0 : `${(n / max) * 100}%`, borderRadius: 4, background: good ? "var(--primary)" : "#a3a9fb" }} />
+                        <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: none ? 0 : `${(n / max) * 100}%`, borderRadius: 4, background: good ? "var(--primary)" : "#9cc8e8" }} />
                         <span aria-hidden="true" style={{ position: "absolute", top: -3, bottom: -3, left: `${(avg / max) * 100}%`, width: 2, background: "var(--text)" }} />
                       </span>
                       <span className="small bold" style={{ textAlign: "right" }}>{none ? "-" : `${fmt(n)}${mt.unit}`}</span>

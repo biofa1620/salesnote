@@ -9,10 +9,11 @@
   --text-body: #3a4150;
   --muted: #6b7484;
   --faint: #98a2b3;
-  --primary: #4647d4;
-  --primary-hover: #3838b0;
-  --primary-soft: #eef0ff;
-  --primary-ink: #2f308d;
+  --primary: #1f75b5; /* 다우기술 CI 블루(#2484c6)를 글자 대비 4.5:1 이상이 되도록 한 단계 진하게 */
+  --brand: #2484c6; /* 다우기술 CI 블루 (로고 색) */
+  --primary-hover: #185d92;
+  --primary-soft: #e8f2fa;
+  --primary-ink: #134a75;
   --ok: #0f7a37; --ok-bg: #e7f6ed;
   --warn: #b06806; --warn-bg: #fdf3e2; --warn-line: #e8930c;
   --bad: #a81818; --bad-bg: #fdeaea; --bad-line: #dc2626;
@@ -79,7 +80,7 @@ h1, h2, h3 { margin: 0; }
   font-size: 15px; color: var(--text); background: var(--surface); width: 100%;
 }
 textarea.input { height: auto; padding: 10px 12px; min-height: 80px; resize: vertical; }
-.input:focus, .btn:focus-visible, .chip:focus-visible { outline: 3px solid #c5cbff; outline-offset: 1px; }
+.input:focus, .btn:focus-visible, .chip:focus-visible { outline: 3px solid #a9d0ec; outline-offset: 1px; }
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 
 /* ===== 영업사원 모바일 앱 ===== */
@@ -147,7 +148,7 @@ textarea.input { height: auto; padding: 10px 12px; min-height: 80px; resize: ver
 .rec-btn .sq { width: 28px; height: 28px; border-radius: 6px; background: #fff; }
 .rec-btn .ci { width: 30px; height: 30px; border-radius: 999px; background: #fff; }
 .wave { height: 64px; display: flex; align-items: center; justify-content: center; gap: 4px; }
-.wave span { width: 4px; border-radius: 999px; background: #7f83f4; }
+.wave span { width: 4px; border-radius: 999px; background: #5aa7dc; }
 
 /* ===== 팀장 웹 ===== */
 .admin { min-height: 100vh; display: flex; flex-wrap: wrap; align-items: stretch; }
@@ -219,4 +220,11 @@ ul.points { margin: 0; padding-left: 18px; display: flex; flex-direction: column
   .no-print, .tabbar { display: none !important; }
   body { background: #fff; }
   .quote-doc { border: 0 !important; padding: 0 !important; }
+}
+
+/* 견적서 표: 좁은 화면에서는 비고를 품목 아래 줄로 내립니다 (인쇄·넓은 화면은 비고 칸 그대로) */
+.qd-note-inline { display: none; }
+@media screen and (max-width: 520px) {
+  .qd-table .qd-note { display: none; }
+  .qd-note-inline { display: block; margin-top: 2px; }
 }

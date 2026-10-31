@@ -34,7 +34,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       <MonthCalendar key={`${year}-${month}`} year={year} month={month} events={list} initialSel={initialSel} todayKey={ymd(today)} />
       {aiTodos.length > 0 && (
         <div className="m-page" style={{ paddingTop: 0 }}>
-          <div className="card stack" style={{ borderColor: "#c5cbff", gap: 8 }}>
+          <div className="card stack" style={{ borderColor: "#a9d0ec", gap: 8 }}>
             <span className="row xs bold" style={{ color: "var(--primary)", gap: 6 }}><ISpark size={16} color="var(--primary)" />회의록에서 찾아 등록한 일정</span>
             {aiTodos.map((e) => (
               <Link key={e.id} href={`/m/schedule?date=${ymd(e.startAt)}`} className="between small">
