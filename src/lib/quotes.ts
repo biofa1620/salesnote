@@ -23,7 +23,7 @@ export const seller = () => ({
   name: process.env.SELLER_NAME || "주식회사 다우기술",
   ceo: process.env.SELLER_CEO || "김윤덕",
   address: process.env.SELLER_ADDRESS || "경기도 성남시 수정구 금토로 69 다우디지털스퀘어",
-  bizNo: process.env.SELLER_BIZ_NO || "",
+  bizNo: process.env.SELLER_BIZ_NO || "220-81-02810",
   logo: process.env.SELLER_LOGO || "/brand/logo.png", // public/brand/logo.png 에 회사 CI 파일을 넣으세요
 });
 export const sellerName = () => seller().name;
